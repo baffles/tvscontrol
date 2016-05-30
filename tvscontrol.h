@@ -7,7 +7,9 @@
 #include <QDebug>
 #include <QHostAddress>
 #include <QByteArray>
-#include <qatemconnection.h> 
+#include <qatemconnection.h>
+#include <qatemmixeffect.h>
+#include <qatemdownstreamkey.h>
 #include <qxkey24.h>
 
 class TVSControl : public QObject
@@ -27,6 +29,8 @@ private:
 	QString atemAddr;
 	bool hasAtem;
 	bool hasXKey;
+
+	QAtemMixEffect* getMixEffect();
 	
 	void setAllLEDs();
 	void readyState();

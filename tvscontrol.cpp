@@ -251,11 +251,19 @@ TVSControl::atemMediaSelectChanged(quint8 player, quint8 type, quint8 still, qui
 }
 
 
+QAtemMixEffect* TVSControl::getMixEffect() {
+	return hasAtem ? atem->mixEffect(0) : NULL;
+}
+
+
 //private:
 void
 TVSControl::setAllLEDs()
 {
-	if(!hasAtem) {
+	QAtemMixEffect *me = getMixEffect();
+	QAtemDownstreamKey *dsk0 = atem->downstreamKey(0), *dsk1 = atem->downstreamKey(1);
+
+	if(!hasAtem || me == NULL || dsk0 == NULL || dsk1 == NULL) {
 		for(int i = 0; i < 32; i++) {
 			xkeys->setButtonBlueLEDState(i, OFF);
 			xkeys->setButtonRedLEDState( i, OFF);
@@ -264,13 +272,13 @@ TVSControl::setAllLEDs()
 	}
 	
 	// Query the atem for current status
-	int p = atem->programInput();
+	int p = me->programInput();
 	atemProgramChanged(p,p);
-	    p = atem->previewInput();
+	    p = me->previewInput();
 	atemPreviewChanged(p,p);
-	atemDSKOnChanged(0, atem->downstreamKeyOn(0));
-	atemDSKOnChanged(1, atem->downstreamKeyOn(1));
-	atemUSKOnChanged(0,   atem->upstreamKeyOn(0));
+	atemDSKOnChanged(0, dsk0->onAir());
+	atemDSKOnChanged(1, dsk1->onAir());
+	atemUSKOnChanged(0, me->upstreamKeyOnAir(0));
 	atemFTBChanged(false, false);
 	atemMediaSelectChanged(0, 0, atem->mediaPlayerSelectedStill(0), 0);
 }
@@ -280,7 +288,9 @@ TVSControl::setAllLEDs()
 void
 TVSControl::xkeyButtonDown(unsigned int button)
 {
-	if(!hasAtem) {
+	QAtemMixEffect *me = getMixEffect();
+
+	if(!hasAtem || me == NULL) {
 		return;
 	}
 		
@@ -292,9 +302,9 @@ TVSControl::xkeyButtonDown(unsigned int button)
 		case 3:
 		case 4:
 		case 5:
-			atem->changePreviewInput(SOURCE[button]);
+			me->changePreviewInput(SOURCE[button]);
 			xkeys->setButtonRedLEDState(button, BLINK);
-			atem->doAuto();
+			me->autoTransition();
 			// DJC: set a timer to change it back?
 			break;
 		case 8:
@@ -303,7 +313,7 @@ TVSControl::xkeyButtonDown(unsigned int button)
 		case 11:
 		case 12:
 		case 13:
-			atem->changePreviewInput(SOURCE[button-8]);
+			me->changePreviewInput(SOURCE[button-8]);
 			break;
 		case 16:
 		case 17:
@@ -314,24 +324,30 @@ TVSControl::xkeyButtonDown(unsigned int button)
 			atem->setMediaPlayerSource(0, false, button-16);
 			break;
 		case 24:
-			atem->doCut();
+			me->cut();
 			break;
 		case 25:
-			if(LED[atem->previewInput()] != -1) {
-				xkeys->setButtonRedLEDState(LED[atem->previewInput()], BLINK);
+			if(LED[me->previewInput()] != -1) {
+				xkeys->setButtonRedLEDState(LED[me->previewInput()], BLINK);
 			}
-			atem->doAuto();
+			me->autoTransition();
 			break;
 		case 26:
-			atem->toggleFadeToBlack();
+			me->toggleFadeToBlack();
 			break;
 		case 27:
 		case 28:
 			xkeys->setButtonRedLEDState(button, BLINK);
-			atem->doDownstreamKeyAuto(button-27);
+			{
+				QAtemDownstreamKey *key = atem->downstreamKey(button - 27);
+				if (key != NULL)
+					key->doAuto();
+				else
+					cerr << "TVSConnect: no ATEM downstream key " << (button - 27) << endl;
+			}
 			break;
 		case 29:
-			atem->setUpstreamKeyOn(0, !atem->upstreamKeyOn(0));
+			me->setUpstreamKeyOnAir(0, !me->upstreamKeyOnAir(0));
 			//xkeys->setButtonRedLEDState(29, BLINK);
 			//atem->setUpstreamKeyOnNextTransition(0, true);
 			//atem->setBackgroundOnNextTransition(false);
